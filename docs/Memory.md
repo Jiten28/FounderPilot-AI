@@ -20,6 +20,9 @@
   tabs), 404. `npm run build` passes clean (TypeScript strict + Vite production build).
 - Deployed URL: **none yet** — `render.yaml` is written and ready, but the repo hasn't
   been pushed to GitHub/connected to Render yet.
+- Local run: confirmed working on Windows (PowerShell) after the `backend/.env` fix
+  below — `uvicorn app.main:app --reload` boots clean once `backend/.env` and
+  `frontend/.env` are kept separate (each with only its own variables).
 - Known issues / TODOs:
   - No `GET /analyze/{id}` endpoint — a hard refresh on `/results/:id` loses the AI-text
     fields (summary/risks/opportunities/action plan), since they only arrive via router
@@ -43,6 +46,13 @@
 - Backend and frontend merged into one monorepo (`founderpilot-ai/`), duplicate docs/
   README/.gitignore/.env.example consolidated into single root files, `render.yaml`
   added for one-click Blueprint deploy of both services.
+- Fixed a local-run crash: `backend/app/config.py`'s `Settings` class rejected any
+  `.env` file that also contained frontend variables (e.g. `VITE_API_BASE_URL`) with a
+  Pydantic `extra_forbidden` error, because the single root `.env.example` made it easy
+  to copy the whole file into `backend/.env` without trimming. Added
+  `extra="ignore"` to `SettingsConfigDict` so stray/unrelated vars are silently ignored
+  instead of crashing the server. Also rewrote the README's local-run steps to give the
+  exact minimal `.env` content per app instead of a "copy then trim" instruction.
 
 ## Decisions made mid-build (not in the original docs)
 - Tailwind v4 used (`@tailwindcss/vite` plugin) instead of v3 + PostCSS config — simpler

@@ -13,114 +13,111 @@ founderpilot-ai/
 └── .env.example one file, sectioned for backend/ and frontend/
 ```
 
-## Run locally
+## Run Locally
 
 ### Backend
 
-#### Linux / macOS (Bash)
-
 ```bash
 cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
 
-# Copy the environment file
-cp ../.env.example .env
-# Keep only the backend section's values
-
-uvicorn app.main:app --reload
-```
-
-#### Windows (PowerShell)
-
-```powershell
-cd backend
+# Create a virtual environment
 python -m venv venv
+
+# Activate the virtual environment
+# Windows PowerShell
 .\venv\Scripts\Activate.ps1
+
+# Windows Command Prompt
+venv\Scripts\activate
+
+# macOS/Linux
+source venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
+```
 
-# Copy the environment file
-Copy-Item ..\.env.example .env
-# Keep only the backend section's values
+Create a file named `backend/.env` with the following content:
 
+```env
+XAI_API_KEY=your_xai_api_key
+GROK_MODEL=grok-4-fast
+GROK_TIMEOUT_SECONDS=8.0
+FRONTEND_ORIGIN=http://localhost:5173
+DATABASE_URL=sqlite:///./founderpilot.db
+```
+
+> **Note:** Only include the variables listed above. Do **not** copy the root `.env.example` into `backend/.env`, as it contains frontend variables that will cause Pydantic's settings loader to throw an `extra_forbidden` error.
+
+Start the backend server:
+
+```bash
 uvicorn app.main:app --reload
 ```
 
-#### Windows (Command Prompt)
+Backend will be available at:
 
-```cmd
-cd backend
-python -m venv venv
-venv\Scripts\activate.bat
-pip install -r requirements.txt
-
-REM Copy the environment file
-copy ..\.env.example .env
-REM Keep only the backend section's values
-
-uvicorn app.main:app --reload
-```
-
-The backend runs at:
-
-```
-http://localhost:8000
-```
-
-API documentation is available at:
-
-```
-http://localhost:8000/docs
-```
+- API: `http://localhost:8000`
+- Swagger Docs: `http://localhost:8000/docs`
 
 ---
 
-### Frontend (Open a new terminal)
+### Frontend
 
-#### Linux / macOS (Bash)
+Open a new terminal:
 
 ```bash
 cd frontend
+
+# Install dependencies
 npm install
+```
 
-cp ../.env.example .env
-# Keep only the frontend section's values
+Create a file named `frontend/.env` with the following content:
 
+```env
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+Start the frontend development server:
+
+```bash
 npm run dev
 ```
 
-#### Windows (PowerShell)
+Frontend will be available at:
 
-```powershell
-cd frontend
-npm install
-
-Copy-Item ..\.env.example .env
-# Keep only the frontend section's values
-
-npm run dev
-```
-
-#### Windows (Command Prompt)
-
-```cmd
-cd frontend
-npm install
-
-copy ..\.env.example .env
-REM Keep only the frontend section's values
-
-npm run dev
-```
-
-The frontend runs at:
-
-```
-http://localhost:5173
-```
+- Application: `http://localhost:5173`
 
 ---
+
+### Project Structure
+
+```text
+project/
+├── backend/
+│   ├── .env
+│   ├── requirements.txt
+│   └── app/
+├── frontend/
+│   ├── .env
+│   ├── package.json
+│   └── src/
+└── README.md
+```
+
+### Prerequisites
+
+- Python 3.11+
+- Node.js 18+
+- npm
+- An xAI API key
+
+Runs at `http://localhost:5173`.
+
+> The root `.env.example` is a reference showing every variable the project uses,
+> sectioned by app — it is not meant to be copied wholesale into either `.env` file.
+> Each app's `.env` should contain only its own section's lines.
 
 Without `XAI_API_KEY` set, `/analyze` and `/chat` automatically use a deterministic
 fallback (`ai_degraded: true`) instead of failing — the app is fully usable before you

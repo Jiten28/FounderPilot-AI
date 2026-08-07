@@ -17,7 +17,10 @@ class Settings(BaseSettings):
     grok_timeout_seconds: float = 8.0
     database_url: str = "sqlite:///./founderpilot.db"
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    # extra="ignore": if backend/.env accidentally still has frontend-only vars
+    # (e.g. VITE_API_BASE_URL, copy-pasted from the shared .env.example without
+    # trimming), don't crash the whole server over it — just ignore them.
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
 settings = Settings()
