@@ -8,8 +8,7 @@ one xAI Grok API key needed.
 founderpilot-ai/
 ├── backend/     FastAPI + SQLite + xAI Grok
 ├── frontend/    React + TypeScript + Tailwind + Recharts
-├── docs/        PRD, Architecture, Rules, Phases, Design, Memory — paste into any
-│                AI coding tool as project context before asking it to extend this app
+├── docs/        PRD, Architecture, Rules, Phases, Design, Memory
 ├── render.yaml  one-click Render Blueprint (deploys both services)
 └── .env.example one file, sectioned for backend/ and frontend/
 ```
