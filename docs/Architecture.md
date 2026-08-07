@@ -58,10 +58,10 @@ founderpilot-ai/
 ## 2. Tech stack
 
 **Backend:** FastAPI (async), Uvicorn, Pydantic v2, SQLAlchemy + SQLite, `httpx` async
-client for the Grok call, xAI Grok API (`https://api.x.ai/v1/chat/completions`,
-OpenAI-compatible schema, auth via `Authorization: Bearer <XAI_API_KEY>`). Model ID comes
-from `GROK_MODEL` env var — never hardcoded, since xAI retires/redirects slugs. Use the
-fast/low-latency tier, not the flagship reasoning model.
+client for the AI call, Groq API (`https://api.groq.com/openai/v1/chat/completions`,
+OpenAI-compatible schema, auth via `Authorization: Bearer <GROQ_API_KEY>`). Model ID comes
+from `GROQ_MODEL` env var — never hardcoded, since Groq occasionally retires/renames
+slugs. Default is `llama-3.3-70b-versatile`, a fast free-tier model.
 
 **Frontend:** React 19 + TypeScript, Vite, Tailwind CSS v4, `react-router-dom`, Recharts.
 No Redux — React state + URL params (`analysis_id` lives in the route).
@@ -85,7 +85,7 @@ POST /analyze ──────────► FastAPI router
    │                 numeric scores (no AI, always succeeds)
    │                         │
    │                         ▼
-   │                 ai_client.py sends prompt to xAI Grok,
+   │                 ai_client.py sends prompt to Groq,
    │                 forces JSON-only response, validates,
    │                 retries once, falls back deterministically
    │                         │
@@ -104,12 +104,13 @@ Results.tsx           (analysis_id reused by /chat, /metrics,
  └─ Chat tab → POST /chat with { analysis_id, message } per turn
 ```
 
-**Known limitation, by design:** the full `AnalysisResult` (summary/risks/opportunities/
-action plan) is only available via router state passed from the intake form's `POST
-/analyze` response — there is no `GET /analyze/{id}` in the contract. A hard refresh on
-`/results/:id` re-fetches metrics and recommendations (both keyed by id) but not the
-original analysis text, and shows a "start a new analysis" prompt instead. Add a
-`GET /analyze/{id}` endpoint later if persistent shareable links become a requirement.
+The full `AnalysisResult` (summary/risks/opportunities/action plan) is passed via router
+state from the intake form's `POST /analyze` response for the immediate post-submit
+render (no extra round trip). On a hard refresh of `/results/:id` — where router state is
+gone — the frontend now falls back to `GET /analyze/{id}` (Section 4.1b) to re-fetch it,
+alongside the existing `/metrics` and `/recommendations` calls. Only an unknown/expired
+`analysis_id` (backend restarted with a fresh SQLite file, id typo'd, etc.) shows the
+"start a new analysis" prompt now.
 
 ## 4. API Contract (canonical — do not let frontend/backend drift)
 
@@ -154,6 +155,13 @@ Response body:
   "ai_degraded": false
 }
 ```
+
+### 4.1b `GET /analyze/{analysis_id}`
+
+Re-fetches a previously created analysis by id — same response shape as 4.1's `POST
+/analyze` response. Used by the frontend on a hard refresh of `/results/:id`, when
+router state (holding the original `POST /analyze` response) is gone. Unknown id → `404`
+`NOT_FOUND` via the error envelope (4.5).
 
 ### 4.2 `POST /chat`
 Request: `{ "analysis_id": "uuid-string", "message": "Should I hire another developer?" }`

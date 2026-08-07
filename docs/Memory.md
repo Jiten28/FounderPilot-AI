@@ -13,27 +13,54 @@
 ---
 
 ## Current State
-- Phase reached: **Phase 5 complete** (frontend build) — Phase 6 (deploy) not started.
-- Backend: fully implemented — `/health`, `/analyze`, `/chat`, `/metrics/{id}`,
-  `/recommendations/{id}` all working per contract, with AI fallback/degradation handled.
+- Phase reached: **Phase 5 complete** (frontend build), plus the `GET /analyze/{id}`
+  endpoint and the Groq migration below. Phase 6 (deploy) not started.
+- AI provider: **Groq**, not xAI/Grok (switched — see Progress Log). Backend calls
+  `https://api.groq.com/openai/v1/chat/completions` via `GROQ_API_KEY`/`GROQ_MODEL`
+  (default `llama-3.3-70b-versatile`)/`GROQ_TIMEOUT_SECONDS`.
+- Backend: fully implemented — `/health`, `/analyze` (POST + new GET `/analyze/{id}`),
+  `/chat`, `/metrics/{id}`, `/recommendations/{id}` all working per contract, with AI
+  fallback/degradation handled.
 - Frontend: fully implemented — Landing, Intake Form, Results (Dashboard/Insights/Chat
-  tabs), 404. `npm run build` passes clean (TypeScript strict + Vite production build).
-- Deployed URL: **none yet** — `render.yaml` is written and ready, but the repo hasn't
-  been pushed to GitHub/connected to Render yet.
+  tabs), 404. `Results.tsx` now fetches the analysis via `GET /analyze/{id}` on mount
+  when router state is missing (hard refresh), instead of showing a hard "start over"
+  error. `tsc -b` passes clean (Vite build itself untested in the sandbox that produced
+  this note — see Progress Log entry below — verify `npm run build` end-to-end on your
+  machine).
+- Deployed URL: **none yet** — `render.yaml` is written and ready (now referencing
+  `GROQ_API_KEY`), but the repo hasn't been pushed to GitHub/connected to Render yet.
 - Local run: confirmed working on Windows (PowerShell) after the `backend/.env` fix
   below — `uvicorn app.main:app --reload` boots clean once `backend/.env` and
   `frontend/.env` are kept separate (each with only its own variables).
 - Known issues / TODOs:
-  - No `GET /analyze/{id}` endpoint — a hard refresh on `/results/:id` loses the AI-text
-    fields (summary/risks/opportunities/action plan), since they only arrive via router
-    state from the form's original POST response. Metrics/recommendations still refetch
-    fine on refresh. Add this endpoint if persistent shareable result links are needed.
-  - `XAI_API_KEY` not yet set anywhere — until it is (locally in `backend/.env`, or in
-    the Render dashboard), every `/analyze` and `/chat` call runs in `ai_degraded: true`
-    fallback mode. The app is fully functional this way, just with templated AI text.
+  - `GROQ_API_KEY` is currently **blank** in `backend/.env` (the old `XAI_API_KEY` value
+    was left behind, unused, when the provider switched — that key doesn't work against
+    Groq's API anyway). Get a free key at console.groq.com/keys and set it locally and
+    in the Render dashboard before demoing, or every `/analyze`/`/chat` call stays in
+    `ai_degraded: true` fallback mode. The app is fully functional this way, just with
+    templated AI text.
   - No automated tests yet (manual verification only).
 
 ## Progress Log
+- **Debugged the "chat always fails / dashboard shows degraded fallback" report**: root
+  cause was every xAI Grok call failing (traced to the exact fallback string in
+  `ai_client.py`'s `get_chat_reply` except block, and the deterministic-template text
+  showing verbatim in the dashboard's business_summary). The `XAI_API_KEY` present in
+  `backend/.env` wasn't diagnosed further (no network access from the debugging
+  environment) — moot anyway since the provider was switched.
+- **Switched AI provider from xAI Grok to Groq** (free tier): renamed
+  `XAI_API_KEY`→`GROQ_API_KEY`, `GROK_MODEL`→`GROQ_MODEL` (default now
+  `llama-3.3-70b-versatile`), `GROK_TIMEOUT_SECONDS`→`GROQ_TIMEOUT_SECONDS` throughout
+  `config.py`, `ai_client.py`, both `.env` files, `render.yaml`, `README.md`, and
+  `docs/Rules.md`/`Architecture.md`/`PRD.md`. `GROQ_API_KEY` is currently blank — needs
+  a real key before AI features come out of fallback mode (see Known issues above).
+- **Added `GET /analyze/{analysis_id}`** (backend `routers/analyze.py`, factored the
+  record→response mapping into `_record_to_result()` shared with `POST /analyze`).
+  Updated `Architecture.md` (new Section 4.1b, rewrote the old "known limitation"
+  paragraph in Section 3) and `PRD.md`'s non-goals bullet to match. Frontend
+  `Results.tsx` now calls this on mount (via new `getAnalysis()` in `api/client.ts`)
+  whenever router state is missing, so a hard refresh on `/results/:id` recovers the
+  full analysis instead of forcing a restart.
 - Initial hackathon docs (`PRD.md`/`Architecture.md`/`Rules.md`/`Phases.md`/`Design.md`)
   written as two parallel doc sets (person-a backend, person-b frontend) — since merged
   into this single `docs/` folder.
@@ -62,5 +89,6 @@
   components were built directly instead to avoid the extra dependency/setup weight for
   a project this size. Swap in shadcn later if the component surface area grows a lot.
 - `analysis_id`'s full result payload travels via React Router state, not a global
-  store — acceptable per the "no Redux" rule, but means refresh loses the AI-text
-  fields (see Current State TODOs above).
+  store — acceptable per the "no Redux" rule. Originally meant refresh lost the AI-text
+  fields; now backfilled by `GET /analyze/{id}` on mount when state is missing (see
+  Progress Log).

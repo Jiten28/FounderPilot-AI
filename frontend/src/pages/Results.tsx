@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useParams, Link } from "react-router-dom";
-import { getMetrics, getRecommendations, ApiError } from "../api/client";
+import { getAnalysis, getMetrics, getRecommendations, ApiError } from "../api/client";
 import type { AnalysisResult, MetricsResponse, RecommendationsResponse } from "../types/api";
 import { ScoreCard } from "../components/dashboard/ScoreCard";
 import { MetricsCharts } from "../components/dashboard/MetricsCharts";
@@ -24,7 +24,7 @@ export function Results() {
   const location = useLocation();
   const stateAnalysis = (location.state as { analysis?: AnalysisResult } | null)?.analysis;
 
-  const [analysis] = useState<AnalysisResult | null>(stateAnalysis ?? null);
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(stateAnalysis ?? null);
   const [metrics, setMetrics] = useState<MetricsResponse | null>(null);
   const [recommendations, setRecommendations] = useState<RecommendationsResponse | null>(null);
   const [tab, setTab] = useState<Tab>("dashboard");
@@ -34,19 +34,21 @@ export function Results() {
   useEffect(() => {
     if (!analysisId) return;
 
-    // The analysis itself only arrives via router state (from the intake form's
-    // immediate POST /analyze response) — there's no GET /analyze/:id in the
-    // contract, so a hard refresh on this page can't re-fetch it. Everything
-    // else (metrics, recommendations) is safely re-fetchable by id.
+    // The analysis itself arrives instantly via router state right after the
+    // intake form's POST /analyze — no extra round trip needed then. On a hard
+    // refresh (router state gone), fall back to GET /analyze/:id alongside the
+    // metrics/recommendations calls, which were always re-fetchable by id.
     let cancelled = false;
     async function load() {
       setError(null);
       try {
-        const [metricsRes, recsRes] = await Promise.all([
+        const [analysisRes, metricsRes, recsRes] = await Promise.all([
+          stateAnalysis ? Promise.resolve(stateAnalysis) : getAnalysis(analysisId!),
           getMetrics(analysisId!),
           getRecommendations(analysisId!),
         ]);
         if (!cancelled) {
+          setAnalysis(analysisRes);
           setMetrics(metricsRes);
           setRecommendations(recsRes);
         }
@@ -63,12 +65,21 @@ export function Results() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analysisId]);
+
+  if (!analysis && loading) {
+    return (
+      <div className="mx-auto max-w-2xl px-6 py-20">
+        <LoadingState label="Loading your analysis..." />
+      </div>
+    );
+  }
 
   if (!analysis) {
     return (
       <div className="mx-auto max-w-2xl px-6 py-20">
-        <ErrorBanner message="We don't have this analysis in memory (likely a page refresh). Start a new one — it only takes 2 minutes." />
+        <ErrorBanner message={error ?? "We couldn't find this analysis. Start a new one — it only takes 2 minutes."} />
         <Link
           to="/form"
           className="mt-6 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)]"

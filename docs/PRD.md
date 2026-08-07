@@ -7,7 +7,7 @@ form; the app returns a deterministic health score plus AI-generated risks, grow
 opportunities, KPIs, and a 30-day action plan — not a generic chatbot.
 
 Two halves, one contract:
-- **Backend** (`/backend`) — FastAPI + SQLite + xAI Grok. Owns every number and every
+- **Backend** (`/backend`) — FastAPI + SQLite + Groq. Owns every number and every
   piece of advice.
 - **Frontend** (`/frontend`) — React + TypeScript + Tailwind + Recharts. A pure client;
   never computes or invents a number itself.
@@ -37,8 +37,8 @@ Results page with Dashboard / AI Insights / Chat as tabs sharing one `analysis_i
   `Rules.md`), by design: explainable over sophisticated.
 - No multi-tenant billing.
 - No editing/re-running a past analysis — one form, one result per session. (A page
-  refresh on `/results/:id` re-fetches metrics/recommendations but not the original
-  analysis text, since there's no `GET /analyze/:id` endpoint — see `Architecture.md`.)
+  refresh on `/results/:id` re-fetches everything, including the original analysis text,
+  via `GET /analyze/:id` — see `Architecture.md`.)
 - No mobile-native app — responsive web only.
 
 ## 6. Success criteria

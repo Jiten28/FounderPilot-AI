@@ -8,8 +8,8 @@ demo/production-safe.
 
 **Must use**
 - FastAPI + Pydantic v2 for every request/response model — no raw dicts in/out of routes.
-- `httpx.AsyncClient` for the Grok API call. Never `requests` (blocking) inside `async def`.
-- Env vars via `.env` + `pydantic-settings`. Never hardcode `XAI_API_KEY` or any secret.
+- `httpx.AsyncClient` for the Groq API call. Never `requests` (blocking) inside `async def`.
+- Env vars via `.env` + `pydantic-settings`. Never hardcode `GROQ_API_KEY` or any secret.
 - SQLite via SQLAlchemy for persistence. Schema lives only in `db_models.py`.
 - Exact field names/types from `Architecture.md` Section 4. Change the contract there
   first, in the same commit as any code change.
@@ -21,18 +21,20 @@ demo/production-safe.
 - No returning raw, un-parsed LLM text to the client — always parsed into the fixed
   schema before leaving `ai_client.py`.
 
-**AI call rules (xAI Grok)**
-- Endpoint `https://api.x.ai/v1/chat/completions`, model ID from `GROK_MODEL` env var —
-  confirm the current slug in the xAI console; never hardcode it in source.
-- Use the fast/low-latency tier for `/analyze` and `/chat`, not the flagship reasoning
-  model — speed and cost control matter more than max reasoning depth here.
+**AI call rules (Groq)**
+- Endpoint `https://api.groq.com/openai/v1/chat/completions`, model ID from `GROQ_MODEL`
+  env var — confirm the current slug at console.groq.com/docs/models; never hardcode it
+  in source.
+- Use a fast tier model for `/analyze` and `/chat` (default `llama-3.3-70b-versatile`),
+  not a slower/heavier reasoning model — speed and cost control matter more than max
+  reasoning depth here.
 - `response_format: {"type": "json_object"}` plus an explicit "JSON only, no markdown
   fences" instruction in the prompt — belt and suspenders.
 - Try once → on invalid JSON/failure, retry once with a stricter prompt → on second
   failure or timeout, fall back to a deterministic template built from the already
   computed health-score numbers, with `ai_degraded: true`. `/analyze` must never 500
   because the LLM had a bad moment.
-- Explicit request timeout (`GROK_TIMEOUT_SECONDS`, default 8s).
+- Explicit request timeout (`GROQ_TIMEOUT_SECONDS`, default 8s).
 - Prompt templates live in `prompts.py`, never inline in route handlers.
 
 **Error handling**

@@ -52,6 +52,17 @@ rewriting this file.
       periodically if a live, always-warm demo matters
 - [ ] Smoke test on the deployed URLs, not localhost
 
+## Phase 7 — Bugfix + AI provider swap + shareable results (in progress)
+- [x] Diagnosed the "chat always errors / dashboard shows degraded fallback" report —
+      root cause was the AI provider call failing every time.
+- [x] Switched AI provider from xAI Grok to Groq (free tier) end-to-end: backend,
+      both `.env` files, `render.yaml`, `README.md`, and the relevant docs.
+- [x] Added `GET /analyze/{analysis_id}`; frontend now recovers the full analysis on a
+      hard refresh of `/results/:id` instead of forcing a restart.
+- [ ] Set a real `GROQ_API_KEY` (locally and, later, in Render) and confirm `/analyze`
+      and `/chat` come out of `ai_degraded` fallback mode.
+- [ ] Phase 6 (deploy) still not started.
+
 ## How to add the next phase
 When you come back to extend this project, add `## Phase 7 — <name>` here with its own
 checklist, update `Memory.md`'s "Current State" section, and hand both files (plus

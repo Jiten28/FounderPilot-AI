@@ -1,7 +1,7 @@
 """
-xAI Grok call via httpx.AsyncClient (Rules.md: never use `requests` inside an
+Groq call via httpx.AsyncClient (Rules.md: never use `requests` inside an
 async route). Endpoint is OpenAI-compatible (Chat Completions schema), so the
-request/response shape below matches what you'd use for OpenAI too. Behavior
+request/response shape below matches what you'd use for OpenAI/xAI too. Behavior
 contract:
   1. Try once, JSON-mode, parse + validate.
   2. On failure, retry once with a stricter prompt suffix.
@@ -22,7 +22,7 @@ from app.services.prompts import (
     build_chat_user_message,
 )
 
-GROK_URL = "https://api.x.ai/v1/chat/completions"
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 REQUIRED_ANALYSIS_KEYS = {
     "business_summary", "top_risks", "growth_opportunities",
@@ -91,25 +91,25 @@ async def get_ai_analysis(data: StartupInput, metrics: dict) -> tuple[dict, bool
     Returns (analysis_dict, ai_degraded). ai_degraded=True means the fallback
     was used — the route must set AnalysisResult.ai_degraded accordingly.
     """
-    if not settings.xai_api_key:
+    if not settings.groq_api_key:
         return _deterministic_fallback(data, metrics), True
 
     user_message = build_analysis_user_message(data, metrics)
-    headers = {"Authorization": f"Bearer {settings.xai_api_key}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"}
 
     messages = [
         {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
         {"role": "user", "content": user_message},
     ]
 
-    async with httpx.AsyncClient(timeout=settings.grok_timeout_seconds) as client:
+    async with httpx.AsyncClient(timeout=settings.groq_timeout_seconds) as client:
         for attempt in range(2):  # 1 initial try + 1 retry, per Rules.md
             try:
                 response = await client.post(
-                    GROK_URL,
+                    GROQ_URL,
                     headers=headers,
                     json={
-                        "model": settings.grok_model,
+                        "model": settings.groq_model,
                         "messages": messages,
                         "temperature": 0.4,
                         "response_format": {"type": "json_object"},
@@ -138,21 +138,21 @@ async def get_ai_analysis(data: StartupInput, metrics: dict) -> tuple[dict, bool
 async def get_chat_reply(analysis_context: dict, question: str) -> str:
     """Chat failures degrade to a static apology string rather than a 500 - a
     broken chat reply shouldn't break the whole results page."""
-    if not settings.xai_api_key:
+    if not settings.groq_api_key:
         return "AI chat is temporarily unavailable. Please check back shortly."
 
-    headers = {"Authorization": f"Bearer {settings.xai_api_key}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"}
     messages = [
         {"role": "system", "content": CHAT_SYSTEM_PROMPT},
         {"role": "user", "content": build_chat_user_message(analysis_context, question)},
     ]
 
     try:
-        async with httpx.AsyncClient(timeout=settings.grok_timeout_seconds) as client:
+        async with httpx.AsyncClient(timeout=settings.groq_timeout_seconds) as client:
             response = await client.post(
-                GROK_URL,
+                GROQ_URL,
                 headers=headers,
-                json={"model": settings.grok_model, "messages": messages, "temperature": 0.5},
+                json={"model": settings.groq_model, "messages": messages, "temperature": 0.5},
             )
             response.raise_for_status()
             return response.json()["choices"][0]["message"]["content"].strip()

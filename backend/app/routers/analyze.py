@@ -7,9 +7,30 @@ from app.models.schemas import StartupInput, AnalysisResult
 from app.services.health_score import compute_deterministic_metrics
 from app.services.ai_client import get_ai_analysis
 from app.db.database import get_db
-from app.db.crud import create_analysis
+from app.db.crud import create_analysis, get_analysis
+from app.utils.errors import raise_api_error
 
 router = APIRouter()
+
+
+def _record_to_result(record) -> AnalysisResult:
+    """Shared mapping from the SQLAlchemy record to the API response shape —
+    used by both POST /analyze (fresh) and GET /analyze/{id} (reload)."""
+    return AnalysisResult(
+        analysis_id=record.analysis_id,
+        health_score=record.health_score,
+        risk_score=record.risk_score,
+        risk_level=record.risk_level,
+        funding_readiness_score=record.funding_readiness_score,
+        runway_months=record.runway_months,
+        business_summary=record.business_summary,
+        top_risks=record.top_risks,
+        growth_opportunities=record.growth_opportunities,
+        recommended_kpis=record.recommended_kpis,
+        action_plan_30_days=record.action_plan_30_days,
+        created_at=record.created_at,
+        ai_degraded=record.ai_degraded,
+    )
 
 
 @router.post("/analyze", response_model=AnalysisResult)
@@ -38,18 +59,14 @@ async def analyze_startup(data: StartupInput, db: Session = Depends(get_db)):
         ai_degraded=ai_degraded,
     )
 
-    return AnalysisResult(
-        analysis_id=record.analysis_id,
-        health_score=record.health_score,
-        risk_score=record.risk_score,
-        risk_level=record.risk_level,
-        funding_readiness_score=record.funding_readiness_score,
-        runway_months=record.runway_months,
-        business_summary=record.business_summary,
-        top_risks=record.top_risks,
-        growth_opportunities=record.growth_opportunities,
-        recommended_kpis=record.recommended_kpis,
-        action_plan_30_days=record.action_plan_30_days,
-        created_at=record.created_at,
-        ai_degraded=record.ai_degraded,
-    )
+    return _record_to_result(record)
+
+
+@router.get("/analyze/{analysis_id}", response_model=AnalysisResult)
+async def get_analysis_by_id(analysis_id: str, db: Session = Depends(get_db)):
+    """Re-fetch a previously created analysis — lets the frontend recover the
+    AI-text fields on a hard refresh of /results/:id, per Architecture.md 4.1b."""
+    record = get_analysis(db, analysis_id)
+    if record is None:
+        raise_api_error("NOT_FOUND", f"No analysis found for id {analysis_id}")
+    return _record_to_result(record)

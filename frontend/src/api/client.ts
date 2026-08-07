@@ -67,6 +67,10 @@ export function analyzeStartup(input: StartupInput): Promise<AnalysisResult> {
   });
 }
 
+export function getAnalysis(analysisId: string): Promise<AnalysisResult> {
+  return request<AnalysisResult>(`/analyze/${analysisId}`, { method: "GET" });
+}
+
 export function sendChatMessage(req: ChatRequest): Promise<ChatResponse> {
   return request<ChatResponse>("/chat", {
     method: "POST",

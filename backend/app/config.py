@@ -8,13 +8,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    xai_api_key: str = ""
+    groq_api_key: str = ""
     frontend_origin: str = "http://localhost:5173"
-    # Confirm the current model ID in the xAI console before the hackathon starts —
-    # xAI retires/redirects model slugs frequently. Use their fast/low-latency tier,
-    # not the flagship reasoning model, for demo-time speed and cost control.
-    grok_model: str = "grok-4-fast"
-    grok_timeout_seconds: float = 8.0
+    # Confirm the current model ID at https://console.groq.com/docs/models —
+    # Groq occasionally retires/renames model slugs. llama-3.3-70b-versatile is
+    # a good default: free tier, fast, and supports response_format=json_object.
+    groq_model: str = "llama-3.3-70b-versatile"
+    groq_timeout_seconds: float = 8.0
     database_url: str = "sqlite:///./founderpilot.db"
 
     # extra="ignore": if backend/.env accidentally still has frontend-only vars

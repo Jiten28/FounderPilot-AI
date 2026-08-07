@@ -2,11 +2,11 @@
 
 Your AI co-founder for startup growth — a founder fills one form, the app returns a
 health score, risk read, and a 30-day action plan. FastAPI backend + React frontend,
-one xAI Grok API key needed.
+one Groq API key needed (free tier).
 
 ```
 founderpilot-ai/
-├── backend/     FastAPI + SQLite + xAI Grok
+├── backend/     FastAPI + SQLite + Groq
 ├── frontend/    React + TypeScript + Tailwind + Recharts
 ├── docs/        PRD, Architecture, Rules, Phases, Design, Memory
 ├── render.yaml  one-click Render Blueprint (deploys both services)
@@ -40,9 +40,9 @@ pip install -r requirements.txt
 Create a file named `backend/.env` with the following content:
 
 ```env
-XAI_API_KEY=your_xai_api_key
-GROK_MODEL=grok-4-fast
-GROK_TIMEOUT_SECONDS=8.0
+GROQ_API_KEY=your_groq_api_key
+GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_TIMEOUT_SECONDS=8.0
 FRONTEND_ORIGIN=http://localhost:5173
 DATABASE_URL=sqlite:///./founderpilot.db
 ```
@@ -111,7 +111,7 @@ project/
 - Python 3.11+
 - Node.js 18+
 - npm
-- An xAI API key
+- A Groq API key (free — https://console.groq.com/keys)
 
 Runs at `http://localhost:5173`.
 
@@ -119,7 +119,7 @@ Runs at `http://localhost:5173`.
 > sectioned by app — it is not meant to be copied wholesale into either `.env` file.
 > Each app's `.env` should contain only its own section's lines.
 
-Without `XAI_API_KEY` set, `/analyze` and `/chat` automatically use a deterministic
+Without `GROQ_API_KEY` set, `/analyze` and `/chat` automatically use a deterministic
 fallback (`ai_degraded: true`) instead of failing — the app is fully usable before you
 add a key.
 
@@ -129,7 +129,7 @@ add a key.
 2. In Render: **New → Blueprint**, point it at the repo. `render.yaml` at the root
    deploys both `founderpilot-ai-backend` (Docker web service) and
    `founderpilot-ai-frontend` (static site) in one go.
-3. Set `XAI_API_KEY` in the Render dashboard for the backend service (it's marked
+3. Set `GROQ_API_KEY` in the Render dashboard for the backend service (it's marked
    `sync: false` in `render.yaml` so Render prompts for it rather than needing it in git).
 4. Render's default URLs are `https://founderpilot-ai-backend.onrender.com` and
    `https://founderpilot-ai-frontend.onrender.com`, already wired into `render.yaml`'s
