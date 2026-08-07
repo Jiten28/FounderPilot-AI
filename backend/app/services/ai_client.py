@@ -127,7 +127,16 @@ async def get_ai_analysis(data: StartupInput, metrics: dict) -> tuple[dict, bool
                 messages.append({"role": "assistant", "content": raw})
                 messages.append({"role": "user", "content": STRICT_RETRY_SUFFIX})
 
-            except (httpx.TimeoutException, httpx.HTTPStatusError, json.JSONDecodeError, KeyError):
+            except Exception as e:
+                # Broad on purpose: a narrower tuple (TimeoutException/HTTPStatusError/
+                # JSONDecodeError/KeyError) missed connection-level failures like
+                # httpx.ConnectError, which would have propagated up and 500'd the
+                # route — breaking the "never 500 because the LLM had a bad moment"
+                # guarantee. Logged so failures are visible instead of silently
+                # degrading with no trace.
+                print("AI ERROR:", repr(e))
+                if isinstance(e, httpx.HTTPStatusError):
+                    print("AI ERROR BODY:", e.response.text)
                 if attempt == 0:
                     continue  # let the loop retry once
                 break  # second failure -> fall through to fallback
@@ -156,5 +165,12 @@ async def get_chat_reply(analysis_context: dict, question: str) -> str:
             )
             response.raise_for_status()
             return response.json()["choices"][0]["message"]["content"].strip()
-    except (httpx.TimeoutException, httpx.HTTPStatusError, KeyError):
+    except Exception as e:
+        # Same reasoning as get_ai_analysis: broadened from a narrow exception
+        # tuple to catch connection-level failures too, and logged so the real
+        # cause shows up in the server console instead of just the generic
+        # apology string reaching the user.
+        print("CHAT AI ERROR:", repr(e))
+        if isinstance(e, httpx.HTTPStatusError):
+            print("CHAT AI ERROR BODY:", e.response.text)
         return "I'm having trouble responding right now — please try asking again in a moment."

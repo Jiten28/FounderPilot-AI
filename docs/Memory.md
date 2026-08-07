@@ -48,6 +48,14 @@
   showing verbatim in the dashboard's business_summary). The `XAI_API_KEY` present in
   `backend/.env` wasn't diagnosed further (no network access from the debugging
   environment) — moot anyway since the provider was switched.
+- **Broadened the except clauses in `ai_client.py`** (`get_ai_analysis` and
+  `get_chat_reply`, both now `except Exception as e` with `print()` logging, plus the
+  response body on `httpx.HTTPStatusError`) — the original narrow tuples
+  (`TimeoutException`/`HTTPStatusError`/`JSONDecodeError`/`KeyError`) missed
+  connection-level failures like `httpx.ConnectError`, which would have propagated up
+  and 500'd the route instead of degrading gracefully. Also means the *actual* Groq
+  error now prints to the server console instead of failing silently — check that
+  console output next time `ai_degraded` fires unexpectedly.
 - **Switched AI provider from xAI Grok to Groq** (free tier): renamed
   `XAI_API_KEY`→`GROQ_API_KEY`, `GROK_MODEL`→`GROQ_MODEL` (default now
   `llama-3.3-70b-versatile`), `GROK_TIMEOUT_SECONDS`→`GROQ_TIMEOUT_SECONDS` throughout
