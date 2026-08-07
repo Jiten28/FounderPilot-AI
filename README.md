@@ -16,25 +16,112 @@ founderpilot-ai/
 
 ## Run locally
 
-**Backend**
+### Backend
+
+#### Linux / macOS (Bash)
+
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
-cp ../.env.example .env         # keep only the backend section's values
+
+# Copy the environment file
+cp ../.env.example .env
+# Keep only the backend section's values
+
 uvicorn app.main:app --reload
 ```
-Runs at `http://localhost:8000` (docs at `/docs`).
 
-**Frontend** (new terminal)
+#### Windows (PowerShell)
+
+```powershell
+cd backend
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+# Copy the environment file
+Copy-Item ..\.env.example .env
+# Keep only the backend section's values
+
+uvicorn app.main:app --reload
+```
+
+#### Windows (Command Prompt)
+
+```cmd
+cd backend
+python -m venv venv
+venv\Scripts\activate.bat
+pip install -r requirements.txt
+
+REM Copy the environment file
+copy ..\.env.example .env
+REM Keep only the backend section's values
+
+uvicorn app.main:app --reload
+```
+
+The backend runs at:
+
+```
+http://localhost:8000
+```
+
+API documentation is available at:
+
+```
+http://localhost:8000/docs
+```
+
+---
+
+### Frontend (Open a new terminal)
+
+#### Linux / macOS (Bash)
+
 ```bash
 cd frontend
 npm install
-cp ../.env.example .env         # keep only the frontend section's values
+
+cp ../.env.example .env
+# Keep only the frontend section's values
+
 npm run dev
 ```
-Runs at `http://localhost:5173`.
+
+#### Windows (PowerShell)
+
+```powershell
+cd frontend
+npm install
+
+Copy-Item ..\.env.example .env
+# Keep only the frontend section's values
+
+npm run dev
+```
+
+#### Windows (Command Prompt)
+
+```cmd
+cd frontend
+npm install
+
+copy ..\.env.example .env
+REM Keep only the frontend section's values
+
+npm run dev
+```
+
+The frontend runs at:
+
+```
+http://localhost:5173
+```
+
+---
 
 Without `XAI_API_KEY` set, `/analyze` and `/chat` automatically use a deterministic
 fallback (`ai_degraded: true`) instead of failing — the app is fully usable before you
@@ -55,6 +142,7 @@ add a key.
    that on first load after a break.
 
 ## Extending this project
+
 `docs/` holds the six standing docs (PRD, Architecture, Rules, Phases, Design, Memory).
 Share that whole folder with an AI coding tool before asking for new features — `Memory.md`
 tells it exactly what's already built so it doesn't re-scan the codebase or re-ask
