@@ -25,6 +25,14 @@ _INDUSTRY_BENCHMARK_PATH = Path(__file__).resolve().parent.parent / "data" / "in
 with open(_INDUSTRY_BENCHMARK_PATH) as _f:
     INDUSTRY_FUNDING_BENCHMARK: dict = json.load(_f)
 
+# Named real startups (911 records) for nearest-neighbor peer matching — same
+# source dataset as INDUSTRY_FUNDING_BENCHMARK, kept as individual rows instead
+# of pre-aggregated stats so we can find actual closest-funding real companies
+# per request rather than only a percentile band.
+_PEER_STARTUPS_PATH = Path(__file__).resolve().parent.parent / "data" / "industry_peer_startups.json"
+with open(_PEER_STARTUPS_PATH) as _f:
+    PEER_STARTUPS: list[dict] = json.load(_f)
+
 # Keyword -> dataset bucket. Deliberately conservative: an unmatched industry
 # string just means the 4th comparison is skipped, never guessed.
 _INDUSTRY_KEYWORDS = [
@@ -151,5 +159,22 @@ def get_benchmark_comparisons(data: StartupInput, burn_rate: float) -> list[dict
             "comparison": f"You've raised {_fmt_money(data.funding_raised)}, {verdict} (based on {n} real "
                            f"Indian {bucket} funding rounds, 2015\u20132017).",
         })
+
+    # 5. Nearest-neighbor real named startups — the most concrete, demo-friendly
+    # comparison: actual companies from the dataset closest to this funding
+    # amount within the matched industry bucket. Skipped (not guessed) when
+    # there's no confident industry match, same rule as comparison #4.
+    if bucket:
+        peers = [p for p in PEER_STARTUPS if p["bucket"] == bucket]
+        peers_sorted = sorted(peers, key=lambda p: abs(p["amount_usd"] - data.funding_raised))
+        top = peers_sorted[:3]
+        if top:
+            peer_desc = "; ".join(f"{p['name']} ({_fmt_money(p['amount_usd'])}, {p['year']})" for p in top)
+            comparisons.append({
+                "metric": "Similar Real Startups",
+                "your_value": _fmt_money(data.funding_raised),
+                "benchmark_value": f"{len(peers)} real {bucket} startups in dataset",
+                "comparison": f"Real Indian {bucket} startups that raised similar amounts to you: {peer_desc}.",
+            })
 
     return comparisons
