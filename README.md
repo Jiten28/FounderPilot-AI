@@ -4,6 +4,15 @@ Your AI co-founder for startup growth — a founder fills one form, the app retu
 health score, risk read, and a 30-day action plan. FastAPI backend + React frontend,
 one Groq API key needed (free tier).
 
+## Live Demo
+
+- App: https://founderpilot-ai-frontend.onrender.com
+- API: https://founderpilot-ai-backend.onrender.com (Swagger docs at `/docs`)
+
+Both are on Render's free tier, which sleeps after 15 minutes idle — the first load
+after a break can take up to ~60 seconds to wake up. That's expected, not a bug; give
+it a moment before assuming something's broken.
+
 ```
 founderpilot-ai/
 ├── backend/     FastAPI + SQLite + Groq
@@ -19,20 +28,15 @@ founderpilot-ai/
 
 ```bash
 cd backend
-
 # Create a virtual environment
 python -m venv venv
-
 # Activate the virtual environment
 # Windows PowerShell
 .\venv\Scripts\Activate.ps1
-
 # Windows Command Prompt
 venv\Scripts\activate
-
 # macOS/Linux
 source venv/bin/activate
-
 # Install dependencies
 pip install -r requirements.txt
 ```
@@ -56,7 +60,6 @@ uvicorn app.main:app --reload
 ```
 
 Backend will be available at:
-
 - API: `http://localhost:8000`
 - Swagger Docs: `http://localhost:8000/docs`
 
@@ -68,7 +71,6 @@ Open a new terminal:
 
 ```bash
 cd frontend
-
 # Install dependencies
 npm install
 ```
@@ -86,7 +88,6 @@ npm run dev
 ```
 
 Frontend will be available at:
-
 - Application: `http://localhost:5173`
 
 ---
@@ -113,8 +114,6 @@ project/
 - npm
 - A Groq API key (free — https://console.groq.com/keys)
 
-Runs at `http://localhost:5173`.
-
 > The root `.env.example` is a reference showing every variable the project uses,
 > sectioned by app — it is not meant to be copied wholesale into either `.env` file.
 > Each app's `.env` should contain only its own section's lines.
@@ -124,6 +123,9 @@ fallback (`ai_degraded: true`) instead of failing — the app is fully usable be
 add a key.
 
 ## Deploy to Render
+
+The live demo above is already deployed from this repo's `render.yaml`. To deploy your
+own copy (e.g. after forking):
 
 1. Push this repo to GitHub.
 2. In Render: **New → Blueprint**, point it at the repo. `render.yaml` at the root
