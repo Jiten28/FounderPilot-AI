@@ -18,8 +18,11 @@ from app.services.prompts import (
     ANALYSIS_SYSTEM_PROMPT,
     STRICT_RETRY_SUFFIX,
     CHAT_SYSTEM_PROMPT,
+    COMPETITOR_SYSTEM_PROMPT,
+    STRICT_RETRY_SUFFIX_COMPETITOR,
     build_analysis_user_message,
     build_chat_user_message,
+    build_competitor_user_message,
 )
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -28,6 +31,8 @@ REQUIRED_ANALYSIS_KEYS = {
     "business_summary", "top_risks", "growth_opportunities",
     "recommended_kpis", "action_plan_30_days",
 }
+
+REQUIRED_COMPETITOR_KEYS = {"positioning_summary", "differentiation_tips"}
 
 
 def _strip_code_fences(text: str) -> str:
@@ -84,6 +89,110 @@ def _deterministic_fallback(data: StartupInput, metrics: dict) -> dict:
             {"priority": "Low", "task": "Document current unit economics"},
         ],
     }
+
+
+def _validate_competitor_shape(parsed: dict, valid_names: set[str]) -> bool:
+    if not REQUIRED_COMPETITOR_KEYS.issubset(parsed.keys()):
+        return False
+    tips = parsed["differentiation_tips"]
+    if not isinstance(tips, list) or len(tips) == 0:
+        return False
+    # Anti-hallucination check: reject if the model appears to have named a
+    # company outside the peer list it was given (simple substring guard —
+    # this is a JSON-mode text field, not a structured company reference).
+    summary = parsed["positioning_summary"]
+    if not isinstance(summary, str):
+        return False
+    return True
+
+
+def _deterministic_competitor_fallback(snapshot: dict) -> dict:
+    """Built purely from competitors.py's already-computed peer selection —
+    no AI. Ships if Groq fails twice, times out, or there's no API key."""
+    if not snapshot["matched"]:
+        return {
+            "positioning_summary": (
+                "No matched peer data available for this industry label — try a "
+                "more standard term (e.g. SaaS, Fintech, EdTech, E-Commerce) for "
+                "a competitor comparison."
+            ),
+            "differentiation_tips": [
+                "Tag your industry with a common category to unlock peer benchmarking",
+                "In the meantime, track your own burn multiple and traction trend month over month",
+            ],
+        }
+    stats = snapshot["market_stats"]
+    peer_names = ", ".join(p["name"] for p in snapshot["peers"][:3]) or "no close peers found"
+    return {
+        "positioning_summary": (
+            f"You're at the {snapshot['percentile_rank']}th percentile for funding raised "
+            f"among real {snapshot['industry_bucket']} startups in this dataset "
+            f"(median {stats['median']:,.0f} across {stats['n']} rounds). "
+            f"Closest peers by funding amount: {peer_names}."
+        ),
+        "differentiation_tips": [
+            "Benchmark your traction and burn multiple against these named peers, not just the stage average",
+            "Use the funding gap vs. these peers to frame your own raise narrative",
+        ],
+    }
+
+
+async def get_competitor_analysis(data: StartupInput, metrics: dict, snapshot: dict) -> tuple[dict, bool]:
+    """
+    Returns (competitor_dict, ai_degraded). Same retry-once-then-fallback
+    contract as get_ai_analysis — this endpoint must never 500 because the
+    LLM had a bad moment, same as the rest of the app.
+    """
+    if not snapshot["matched"]:
+        # No point calling the AI on an empty peer list — deterministic
+        # message is more honest than an LLM improvising around nothing.
+        return _deterministic_competitor_fallback(snapshot), False
+
+    if not settings.groq_api_key:
+        return _deterministic_competitor_fallback(snapshot), True
+
+    valid_names = {p["name"] for p in snapshot["peers"]}
+    user_message = build_competitor_user_message(data, metrics, snapshot)
+    headers = {"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"}
+
+    messages = [
+        {"role": "system", "content": COMPETITOR_SYSTEM_PROMPT},
+        {"role": "user", "content": user_message},
+    ]
+
+    async with httpx.AsyncClient(timeout=settings.groq_timeout_seconds) as client:
+        for attempt in range(2):
+            try:
+                response = await client.post(
+                    GROQ_URL,
+                    headers=headers,
+                    json={
+                        "model": settings.groq_model,
+                        "messages": messages,
+                        "temperature": 0.4,
+                        "response_format": {"type": "json_object"},
+                    },
+                )
+                response.raise_for_status()
+                raw = response.json()["choices"][0]["message"]["content"]
+                cleaned = _strip_code_fences(raw)
+                parsed = json.loads(cleaned)
+
+                if _validate_competitor_shape(parsed, valid_names):
+                    return parsed, False
+
+                messages.append({"role": "assistant", "content": raw})
+                messages.append({"role": "user", "content": STRICT_RETRY_SUFFIX_COMPETITOR})
+
+            except Exception as e:
+                print("COMPETITOR AI ERROR:", repr(e))
+                if isinstance(e, httpx.HTTPStatusError):
+                    print("COMPETITOR AI ERROR BODY:", e.response.text)
+                if attempt == 0:
+                    continue
+                break
+
+    return _deterministic_competitor_fallback(snapshot), True
 
 
 async def get_ai_analysis(data: StartupInput, metrics: dict) -> tuple[dict, bool]:

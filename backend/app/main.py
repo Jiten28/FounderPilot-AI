@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 
 from app.config import settings
 from app.db.database import init_db
-from app.routers import analyze, chat, metrics, recommendations, whatif
+from app.routers import analyze, chat, metrics, recommendations, whatif, competitors
 
 app = FastAPI(title="FounderPilot AI Backend", version="0.1.0")
 
@@ -63,3 +63,4 @@ app.include_router(chat.router)
 app.include_router(metrics.router)
 app.include_router(recommendations.router)
 app.include_router(whatif.router)
+app.include_router(competitors.router)

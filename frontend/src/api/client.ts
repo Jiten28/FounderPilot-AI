@@ -7,6 +7,7 @@ import type {
   MetricsResponse,
   RecommendationsResponse,
   WhatIfResponse,
+  CompetitorAnalysisResponse,
   ApiErrorEnvelope,
 } from "../types/api";
 
@@ -106,5 +107,12 @@ export function whatIf(input: StartupInput): Promise<WhatIfResponse> {
   return request<WhatIfResponse>("/whatif", {
     method: "POST",
     body: JSON.stringify(input),
+  });
+}
+
+// Competitor Snapshot — real peer companies + AI positioning narrative.
+export function getCompetitors(analysisId: string): Promise<CompetitorAnalysisResponse> {
+  return request<CompetitorAnalysisResponse>(`/competitors/${analysisId}`, {
+    method: "GET",
   });
 }

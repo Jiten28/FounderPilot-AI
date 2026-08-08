@@ -9,6 +9,7 @@ import { ActionPlan } from "../components/insights/ActionPlan";
 import { ExpandedRecommendations } from "../components/insights/ExpandedRecommendations";
 import { ChatWindow } from "../components/chat/ChatWindow";
 import { BenchmarkPanel } from "../components/insights/BenchmarkPanel";
+import { CompetitorPanel } from "../components/insights/CompetitorsPanel";
 import { WhatIfSliders } from "../components/insights/WhatIfSliders";
 import { RiskBadge } from "../components/RiskBadge";
 import { LoadingState, ErrorBanner, DegradedNotice } from "../components/PageState";
@@ -218,6 +219,8 @@ export function Results() {
             <BenchmarkPanel benchmarks={analysis.benchmarks} />
             <WhatIfSliders analysis={analysis} />
           </div>
+
+          <CompetitorPanel analysisId={analysis.analysis_id} />
 
           {loading && <LoadingState label="Loading recommendations..." />}
           {recommendations && !loading && (

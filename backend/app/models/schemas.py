@@ -120,6 +120,38 @@ class RecommendationsResponse(BaseModel):
     expanded_recommendations: list[ExpandedRecommendation]
 
 
+# ---------- 4.7 GET /competitors/{analysis_id} ----------
+# Competitor Snapshot: real peer companies (industry_peer_startups.json, 911
+# real Indian startups) selected deterministically by services/competitors.py,
+# with an optional AI-generated positioning narrative grounded in that list.
+# Directly covers the "competitor analysis" capability named in PS10.
+
+class CompetitorPeer(BaseModel):
+    name: str
+    amount_usd: float
+    year: str
+    delta_usd: float  # peer's funding minus this startup's funding
+
+
+class MarketStats(BaseModel):
+    n: int
+    median: float
+    p25: float
+    p75: float
+
+
+class CompetitorAnalysisResponse(BaseModel):
+    analysis_id: str
+    matched: bool  # False = industry text didn't map to a dataset bucket; never guessed
+    industry_bucket: str | None = None
+    percentile_rank: int = 0
+    market_stats: MarketStats | None = None
+    peers: list[CompetitorPeer] = []
+    positioning_summary: str
+    differentiation_tips: list[str]
+    ai_degraded: bool = False
+
+
 # ---------- 4.5 Error envelope ----------
 
 class ErrorResponse(BaseModel):

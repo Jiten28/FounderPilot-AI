@@ -107,7 +107,35 @@ export interface ChatHistoryResponse {
   messages: ChatHistoryMessage[];
 }
 
-// ---------- 4.7 POST /whatif ----------
+// ---------- 4.7 GET /competitors/{analysis_id} ----------
+
+export interface CompetitorPeer {
+  name: string;
+  amount_usd: number;
+  year: string;
+  delta_usd: number;
+}
+
+export interface MarketStats {
+  n: number;
+  median: number;
+  p25: number;
+  p75: number;
+}
+
+export interface CompetitorAnalysisResponse {
+  analysis_id: string;
+  matched: boolean;
+  industry_bucket: string | null;
+  percentile_rank: number;
+  market_stats: MarketStats | null;
+  peers: CompetitorPeer[];
+  positioning_summary: string;
+  differentiation_tips: string[];
+  ai_degraded: boolean;
+}
+
+// ---------- 4.8 POST /whatif ----------
 
 export interface WhatIfResponse {
   health_score: number;
