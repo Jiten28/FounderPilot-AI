@@ -94,3 +94,18 @@ h1, h2, h3, h4, .font-display {
   background: var(--border-subtle);
   border-radius: 8px;
 }
+
+/* Report/PDF export: only the report sheet prints, everything else
+   (nav, footer, buttons) is stripped via print:hidden utility classes on
+   those elements. This keeps window.print() -> "Save as PDF" clean without
+   any extra PDF-generation library. */
+@media print {
+  body {
+    background: white;
+  }
+  nav,
+  header,
+  footer {
+    display: none !important;
+  }
+}

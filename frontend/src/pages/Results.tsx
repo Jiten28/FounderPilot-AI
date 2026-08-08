@@ -8,6 +8,8 @@ import { InsightList } from "../components/insights/InsightList";
 import { ActionPlan } from "../components/insights/ActionPlan";
 import { ExpandedRecommendations } from "../components/insights/ExpandedRecommendations";
 import { ChatWindow } from "../components/chat/ChatWindow";
+import { BenchmarkPanel } from "../components/insights/BenchmarkPanel";
+import { WhatIfSliders } from "../components/insights/WhatIfSliders";
 import { RiskBadge } from "../components/RiskBadge";
 import { LoadingState, ErrorBanner, DegradedNotice } from "../components/PageState";
 
@@ -97,7 +99,16 @@ export function Results() {
           <p className="text-sm text-[var(--text-muted)]">{analysis.risk_level} risk · {new Date(analysis.created_at).toLocaleDateString()}</p>
           <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight">Your FounderPilot Report</h1>
         </div>
-        <RiskBadge level={analysis.risk_level} />
+        <div className="flex items-center gap-3">
+          <RiskBadge level={analysis.risk_level} />
+          <Link
+            to={`/results/${analysis.analysis_id}/report`}
+            state={{ analysis }}
+            className="rounded-full border border-[var(--border-subtle)] px-4 py-2 text-xs font-medium text-[var(--text-muted)] transition hover:border-primary hover:text-[var(--text-primary)]"
+          >
+            Download PDF
+          </Link>
+        </div>
       </div>
 
       {analysis.ai_degraded && (
@@ -202,6 +213,11 @@ export function Results() {
           </div>
 
           <ActionPlan items={analysis.action_plan_30_days} />
+
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <BenchmarkPanel benchmarks={analysis.benchmarks} />
+            <WhatIfSliders analysis={analysis} />
+          </div>
 
           {loading && <LoadingState label="Loading recommendations..." />}
           {recommendations && !loading && (

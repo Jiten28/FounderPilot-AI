@@ -3,7 +3,7 @@ SQLite table definitions. Only this file should define schema — keep persisten
 concerns out of routers/services per Rules.md.
 """
 
-from sqlalchemy import Column, String, Float, Integer, DateTime, JSON, Boolean
+from sqlalchemy import Column, String, Float, Integer, DateTime, JSON, Boolean, ForeignKey
 from sqlalchemy.orm import declarative_base
 from datetime import datetime, timezone
 
@@ -39,6 +39,20 @@ class AnalysisRecord(Base):
     growth_opportunities = Column(JSON, nullable=False)
     recommended_kpis = Column(JSON, nullable=False)
     action_plan_30_days = Column(JSON, nullable=False)
+    benchmarks = Column(JSON, nullable=False, default=list)
     ai_degraded = Column(Boolean, default=False)
 
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class ChatMessage(Base):
+    """Persisted chat turns per analysis — what makes chat memory possible.
+    Without this, every /chat call was a single grounded turn with no history;
+    the AI had no idea what was said two messages ago."""
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    analysis_id = Column(String, ForeignKey("analyses.analysis_id"), nullable=False, index=True)
+    role = Column(String, nullable=False)  # "founder" | "ai"
+    text = Column(String, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

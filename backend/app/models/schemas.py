@@ -29,8 +29,20 @@ class ActionPlanItem(BaseModel):
     task: str
 
 
+class BenchmarkComparison(BaseModel):
+    """One row of the benchmarking feature — the founder's own number next to a
+    stage-typical reference point. See services/benchmarks.py for the source data."""
+    metric: str
+    your_value: str
+    benchmark_value: str
+    comparison: str
+
+
 class AnalysisResult(BaseModel):
     analysis_id: str
+    original_input: StartupInput  # needed by the frontend to seed the what-if
+                                    # sliders at the founder's real starting values,
+                                    # even after a hard refresh loses router state
     health_score: int
     risk_score: int
     risk_level: Literal["Low", "Medium", "High"]
@@ -41,6 +53,7 @@ class AnalysisResult(BaseModel):
     growth_opportunities: list[str]
     recommended_kpis: list[str]
     action_plan_30_days: list[ActionPlanItem]
+    benchmarks: list[BenchmarkComparison] = []
     created_at: datetime
     ai_degraded: bool = False  # only present/true when the AI call failed and a
                                 # deterministic fallback was used — see Rules.md
@@ -56,6 +69,31 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     analysis_id: str
+
+
+class ChatHistoryMessage(BaseModel):
+    role: Literal["founder", "ai"]
+    text: str
+    created_at: datetime
+
+
+class ChatHistoryResponse(BaseModel):
+    analysis_id: str
+    messages: list[ChatHistoryMessage]
+
+
+# ---------- 4.6 POST /whatif ----------
+# Re-runs the deterministic scoring formula (health_score.py) against edited
+# inputs. No AI call, no persistence — pure, fast computation so the frontend
+# can offer "what if" sliders that update live.
+
+class WhatIfResponse(BaseModel):
+    health_score: int
+    risk_score: int
+    risk_level: Literal["Low", "Medium", "High"]
+    funding_readiness_score: int
+    runway_months: float
+    burn_rate: float
 
 
 # ---------- 4.3 GET /metrics/{analysis_id} ----------

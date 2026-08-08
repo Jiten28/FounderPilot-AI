@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.schemas import StartupInput, AnalysisResult
 from app.services.health_score import compute_deterministic_metrics
 from app.services.ai_client import get_ai_analysis
+from app.services.benchmarks import get_benchmark_comparisons
 from app.db.database import get_db
 from app.db.crud import create_analysis, get_analysis
 from app.utils.errors import raise_api_error
@@ -18,6 +19,17 @@ def _record_to_result(record) -> AnalysisResult:
     used by both POST /analyze (fresh) and GET /analyze/{id} (reload)."""
     return AnalysisResult(
         analysis_id=record.analysis_id,
+        original_input=StartupInput(
+            startup_name=record.startup_name,
+            industry=record.industry,
+            revenue=record.revenue,
+            expenses=record.expenses,
+            employees=record.employees,
+            monthly_users=record.monthly_users,
+            stage=record.stage,
+            funding_raised=record.funding_raised,
+            problem_faced=record.problem_faced,
+        ),
         health_score=record.health_score,
         risk_score=record.risk_score,
         risk_level=record.risk_level,
@@ -28,6 +40,7 @@ def _record_to_result(record) -> AnalysisResult:
         growth_opportunities=record.growth_opportunities,
         recommended_kpis=record.recommended_kpis,
         action_plan_30_days=record.action_plan_30_days,
+        benchmarks=record.benchmarks or [],
         created_at=record.created_at,
         ai_degraded=record.ai_degraded,
     )
@@ -37,6 +50,11 @@ def _record_to_result(record) -> AnalysisResult:
 async def analyze_startup(data: StartupInput, db: Session = Depends(get_db)):
     # Step 1: deterministic metrics, always succeeds, no AI involved
     metrics = compute_deterministic_metrics(data)
+
+    # Step 1b: benchmarking — also pure computation, no AI, never fails.
+    # This is the "compared to what" layer: reframes the founder's own numbers
+    # against a stage-typical reference point instead of just echoing them back.
+    benchmarks = get_benchmark_comparisons(data, metrics["burn_rate"])
 
     # Step 2: AI analysis — never raises; degrades to a deterministic fallback
     # on failure/timeout, with ai_degraded flagged for the frontend to show a notice
@@ -56,6 +74,7 @@ async def analyze_startup(data: StartupInput, db: Session = Depends(get_db)):
         growth_opportunities=ai_result["growth_opportunities"],
         recommended_kpis=ai_result["recommended_kpis"],
         action_plan_30_days=ai_result["action_plan_30_days"],
+        benchmarks=benchmarks,
         ai_degraded=ai_degraded,
     )
 

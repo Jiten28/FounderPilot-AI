@@ -5,7 +5,7 @@ the SQLAlchemy session directly. Keeps persistence logic in one place.
 
 import uuid
 from sqlalchemy.orm import Session
-from app.models.db_models import AnalysisRecord
+from app.models.db_models import AnalysisRecord, ChatMessage
 from app.models.schemas import StartupInput
 
 
@@ -22,6 +22,7 @@ def create_analysis(
     growth_opportunities: list[str],
     recommended_kpis: list[str],
     action_plan_30_days: list[dict],
+    benchmarks: list[dict],
     ai_degraded: bool = False,
 ) -> AnalysisRecord:
     record = AnalysisRecord(
@@ -45,6 +46,7 @@ def create_analysis(
         growth_opportunities=growth_opportunities,
         recommended_kpis=recommended_kpis,
         action_plan_30_days=action_plan_30_days,
+        benchmarks=benchmarks,
         ai_degraded=ai_degraded,
     )
     db.add(record)
@@ -55,3 +57,26 @@ def create_analysis(
 
 def get_analysis(db: Session, analysis_id: str) -> AnalysisRecord | None:
     return db.query(AnalysisRecord).filter(AnalysisRecord.analysis_id == analysis_id).first()
+
+
+# ---------- Chat memory ----------
+
+def add_chat_message(db: Session, analysis_id: str, role: str, text: str) -> ChatMessage:
+    msg = ChatMessage(analysis_id=analysis_id, role=role, text=text)
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+    return msg
+
+
+def get_chat_history(db: Session, analysis_id: str, limit: int = 20) -> list[ChatMessage]:
+    """Most recent `limit` messages, oldest first — ready to drop straight into
+    a prompt or a chat UI. 20 messages is plenty of context for a founder Q&A
+    without letting the prompt grow unbounded over a long session."""
+    return (
+        db.query(ChatMessage)
+        .filter(ChatMessage.analysis_id == analysis_id)
+        .order_by(ChatMessage.id.desc())
+        .limit(limit)
+        .all()[::-1]
+    )

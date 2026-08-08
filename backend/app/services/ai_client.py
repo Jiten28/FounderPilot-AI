@@ -56,7 +56,7 @@ def _validate_analysis_shape(parsed: dict) -> bool:
 def _deterministic_fallback(data: StartupInput, metrics: dict) -> dict:
     """
     Built purely from numbers already computed in health_score.py — no AI.
-    This is what ships if Grok fails twice or times out, so /analyze always
+    This is what ships if Groq fails twice or times out, so /analyze always
     returns a complete, schema-correct response.
     """
     risk_level = metrics["risk_level"]
@@ -144,17 +144,27 @@ async def get_ai_analysis(data: StartupInput, metrics: dict) -> tuple[dict, bool
     return _deterministic_fallback(data, metrics), True
 
 
-async def get_chat_reply(analysis_context: dict, question: str) -> str:
+async def get_chat_reply(analysis_context: dict, question: str, history: list[dict] | None = None) -> str:
     """Chat failures degrade to a static apology string rather than a 500 - a
-    broken chat reply shouldn't break the whole results page."""
+    broken chat reply shouldn't break the whole results page.
+
+    `history` is prior turns as [{"role": "founder"|"ai", "text": str}, ...],
+    oldest first — persisted chat memory (Rules.md chat-memory addendum), not
+    just a single isolated question each time."""
     if not settings.groq_api_key:
         return "AI chat is temporarily unavailable. Please check back shortly."
 
     headers = {"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"}
-    messages = [
-        {"role": "system", "content": CHAT_SYSTEM_PROMPT},
-        {"role": "user", "content": build_chat_user_message(analysis_context, question)},
-    ]
+    messages = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}]
+
+    # Fold prior turns in as real conversation history, not just context text —
+    # this is what makes the chat feel like an ongoing conversation instead of
+    # a series of one-off Q&A calls that forget everything each time.
+    for turn in (history or []):
+        role = "assistant" if turn["role"] == "ai" else "user"
+        messages.append({"role": role, "content": turn["text"]})
+
+    messages.append({"role": "user", "content": build_chat_user_message(analysis_context, question)})
 
     try:
         async with httpx.AsyncClient(timeout=settings.groq_timeout_seconds) as client:

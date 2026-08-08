@@ -3,8 +3,10 @@ import type {
   AnalysisResult,
   ChatRequest,
   ChatResponse,
+  ChatHistoryResponse,
   MetricsResponse,
   RecommendationsResponse,
+  WhatIfResponse,
   ApiErrorEnvelope,
 } from "../types/api";
 
@@ -92,4 +94,17 @@ export function getRecommendations(
 
 export function checkHealth(): Promise<{ status: string }> {
   return request<{ status: string }>("/health", { method: "GET" });
+}
+
+export function getChatHistory(analysisId: string): Promise<ChatHistoryResponse> {
+  return request<ChatHistoryResponse>(`/chat/${analysisId}/history`, { method: "GET" });
+}
+
+// Stateless recompute for the what-if sliders — same StartupInput shape as
+// /analyze, just re-scored against edited numbers, no AI call.
+export function whatIf(input: StartupInput): Promise<WhatIfResponse> {
+  return request<WhatIfResponse>("/whatif", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }

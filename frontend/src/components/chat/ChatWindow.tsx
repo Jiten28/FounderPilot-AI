@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { sendChatMessage, ApiError } from "../../api/client";
+import { sendChatMessage, getChatHistory, ApiError } from "../../api/client";
 import { MessageBubble, type ChatMessage } from "./MessageBubble";
 import type { AnalysisResult } from "../../types/api";
 
@@ -9,17 +9,44 @@ const SUGGESTIONS = [
   "Am I ready to raise funding?",
 ];
 
+const GREETING = (analysis: AnalysisResult): ChatMessage => ({
+  role: "ai",
+  text: `Hey — I've reviewed ${analysis.business_summary.split(".")[0]}. Ask me anything about your numbers, risks, or next steps.`,
+});
+
 export function ChatWindow({ analysis }: { analysis: AnalysisResult }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: "ai",
-      text: `Hey — I've reviewed ${analysis.business_summary.split(".")[0]}. Ask me anything about your numbers, risks, or next steps.`,
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([GREETING(analysis)]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Persisted chat memory: restore prior turns for this analysis so refreshing
+  // the page (or coming back later) doesn't wipe the conversation — the
+  // backend has already been storing every turn since it happened.
+  useEffect(() => {
+    let cancelled = false;
+    async function loadHistory() {
+      setHistoryLoading(true);
+      try {
+        const res = await getChatHistory(analysis.analysis_id);
+        if (!cancelled && res.messages.length > 0) {
+          setMessages(res.messages.map((m) => ({ role: m.role, text: m.text })));
+        }
+      } catch {
+        // No history yet, or a transient failure — the greeting already
+        // showing is a perfectly fine fallback, nothing to surface as an error.
+      } finally {
+        if (!cancelled) setHistoryLoading(false);
+      }
+    }
+    loadHistory();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysis.analysis_id]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -94,12 +121,13 @@ export function ChatWindow({ analysis }: { analysis: AnalysisResult }) {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about your startup..."
-          className="flex-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-2.5 text-sm outline-none placeholder:text-[var(--text-muted)] focus:border-primary"
+          placeholder={historyLoading ? "Loading conversation..." : "Ask about your startup..."}
+          disabled={historyLoading}
+          className="flex-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-2.5 text-sm outline-none placeholder:text-[var(--text-muted)] focus:border-primary disabled:opacity-60"
         />
         <button
           type="submit"
-          disabled={sending || !input.trim()}
+          disabled={sending || historyLoading || !input.trim()}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white transition hover:bg-[var(--color-primary-dark)] disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Send message"
         >

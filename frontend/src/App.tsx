@@ -3,6 +3,7 @@ import { NavBar } from "./components/layout/NavBar";
 import { Landing } from "./pages/Landing";
 import { IntakeForm } from "./pages/IntakeForm";
 import { Results } from "./pages/Results";
+import { Report } from "./pages/Report";
 import { NotFound } from "./pages/NotFound";
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/form" element={<IntakeForm />} />
           <Route path="/results/:analysisId" element={<Results />} />
+          <Route path="/results/:analysisId/report" element={<Report />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

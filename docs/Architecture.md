@@ -12,13 +12,15 @@ founderpilot-ai/
 │   │   │   ├── schemas.py     # Pydantic request/response models (Section 4)
 │   │   │   └── db_models.py   # SQLite table models
 │   │   ├── routers/
-│   │   │   ├── analyze.py     # POST /analyze
-│   │   │   ├── chat.py        # POST /chat
+│   │   │   ├── analyze.py     # POST /analyze, GET /analyze/{id}
+│   │   │   ├── chat.py        # POST /chat, GET /chat/{id}/history
 │   │   │   ├── metrics.py     # GET /metrics/{analysis_id}
+│   │   │   ├── whatif.py      # POST /whatif
 │   │   │   └── recommendations.py
 │   │   ├── services/
 │   │   │   ├── health_score.py   # weighted-rule scoring (Section 5)
-│   │   │   ├── ai_client.py      # Grok (xAI) wrapper + JSON parsing/repair
+│   │   │   ├── benchmarks.py     # stage-based benchmarking (Section 4.1)
+│   │   │   ├── ai_client.py      # Groq wrapper + JSON parsing/repair
 │   │   │   └── prompts.py        # all prompt templates
 │   │   ├── db/
 │   │   │   ├── database.py    # SQLite engine/session
@@ -139,6 +141,7 @@ Response body:
 ```json
 {
   "analysis_id": "uuid-string",
+  "original_input": { "startup_name": "string", "industry": "string", "...": "the full request body above, echoed back" },
   "health_score": 78,
   "risk_score": 34,
   "risk_level": "Low | Medium | High",
@@ -151,10 +154,18 @@ Response body:
   "action_plan_30_days": [
     { "priority": "Immediate | High | Medium | Low", "task": "string" }
   ],
+  "benchmarks": [
+    { "metric": "Burn Multiple", "your_value": "1.8x", "benchmark_value": "2.0x–4.0x typical for Seed", "comparison": "string" }
+  ],
   "created_at": "ISO-8601 timestamp",
   "ai_degraded": false
 }
 ```
+`original_input` was added so the frontend always has the founder's real starting
+numbers to seed the what-if sliders (Section 4.7) with — even after a hard refresh loses
+router state. `benchmarks` is always exactly 3 items (burn multiple, user traction, funding
+raised vs. stage-typical ranges) — pure arithmetic, no AI, never empty. See
+`services/benchmarks.py`.
 
 ### 4.1b `GET /analyze/{analysis_id}`
 
@@ -167,7 +178,39 @@ router state (holding the original `POST /analyze` response) is gone. Unknown id
 Request: `{ "analysis_id": "uuid-string", "message": "Should I hire another developer?" }`
 Response: `{ "reply": "string", "analysis_id": "uuid-string" }`
 
-### 4.3 `GET /metrics/{analysis_id}`
+Every turn is persisted server-side (`chat_messages` table) and prior turns are fed back
+to the model on each new call — this is real conversational memory, not a series of
+isolated one-off Q&A calls. See 4.6 to restore history on the frontend.
+
+### 4.6 `GET /chat/{analysis_id}/history`
+```json
+{
+  "analysis_id": "uuid-string",
+  "messages": [
+    { "role": "founder | ai", "text": "string", "created_at": "ISO-8601 timestamp" }
+  ]
+}
+```
+Lets the frontend restore the full conversation after a page refresh, since chat memory
+that only lives in React state disappears the moment the tab reloads. Unknown id → `404`.
+
+### 4.7 `POST /whatif`
+Request: same shape as 4.1's `StartupInput` (the "what-if sliders" feature — send the
+founder's original input with revenue/expenses/employees edited).
+```json
+{
+  "health_score": 82,
+  "risk_score": 20,
+  "risk_level": "Low",
+  "funding_readiness_score": 70,
+  "runway_months": 16,
+  "burn_rate": 4000
+}
+```
+Stateless — pure re-run of the same deterministic formula from `health_score.py`, no AI
+call, no persistence. Safe to call on every slider drag (frontend debounces ~350ms).
+
+### 4.5 Error envelope (all endpoints, all non-2xx responses)
 ```json
 {
   "labels": ["Month 1", "Month 2", "Month 3"],
