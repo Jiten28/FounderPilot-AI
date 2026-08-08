@@ -9,7 +9,47 @@ give a founder a directional read, not investment-grade research. Said so
 explicitly in the comparison text so it's honest about its own precision.
 """
 
+import json
+from pathlib import Path
+
 from app.models.schemas import StartupInput
+
+# Real-data industry funding benchmarks, derived from 1,525 actual Indian startup
+# funding rounds (2015-2017, MIT-licensed public dataset — see
+# app/data/industry_funding_benchmarks.json for the source and the raw figures).
+# This is the one benchmark in this file backed by real observed data rather than
+# a reasoned ballpark band, so it's kept separate from the stage-based bands below
+# and only shown when the founder's free-text industry can be confidently matched
+# to one of the dataset's categories.
+_INDUSTRY_BENCHMARK_PATH = Path(__file__).resolve().parent.parent / "data" / "industry_funding_benchmarks.json"
+with open(_INDUSTRY_BENCHMARK_PATH) as _f:
+    INDUSTRY_FUNDING_BENCHMARK: dict = json.load(_f)
+
+# Keyword -> dataset bucket. Deliberately conservative: an unmatched industry
+# string just means the 4th comparison is skipped, never guessed.
+_INDUSTRY_KEYWORDS = [
+    ("commerce", "E-Commerce"),
+    ("d2c", "E-Commerce"),
+    ("consumer", "Consumer Internet"),
+    ("health", "Healthcare"),
+    ("food", "Food & Beverage"),
+    ("beverage", "Food & Beverage"),
+    ("educat", "Education"),
+    ("fintech", "Finance"),
+    ("financ", "Finance"),
+    ("logistic", "Logistics"),
+    ("saas", "Technology"),
+    ("tech", "Technology"),
+]
+
+
+def _match_industry_bucket(industry: str) -> str | None:
+    s = industry.lower()
+    for keyword, bucket in _INDUSTRY_KEYWORDS:
+        if keyword in s:
+            return bucket
+    return None
+
 
 # burn multiple = burn_rate / max(revenue, 1). Lower is more capital-efficient.
 # Ranges are deliberately wide bands, not precise cutoffs.
@@ -39,8 +79,10 @@ def _fmt_money(n: float) -> str:
 
 def get_benchmark_comparisons(data: StartupInput, burn_rate: float) -> list[dict]:
     """Returns a list of {metric, your_value, benchmark_value, comparison} dicts —
-    matches the BenchmarkComparison schema. Always 3 items, always succeeds
-    (pure arithmetic, no AI, no network call)."""
+    matches the BenchmarkComparison schema. Always at least 3 items (stage-based
+    bands, pure arithmetic, always succeed); a 4th real-data industry comparison
+    is appended when the industry text matches a dataset bucket. No AI, no
+    network call — this function can never fail or time out."""
     comparisons = []
 
     # 1. Burn multiple
@@ -89,5 +131,25 @@ def get_benchmark_comparisons(data: StartupInput, burn_rate: float) -> list[dict
         "benchmark_value": f"{_fmt_money(lo_f)}–{_fmt_money(hi_f)} typical for {data.stage}",
         "comparison": f"You've raised {_fmt_money(data.funding_raised)}, {verdict}.",
     })
+
+    # 4. Funding raised vs. real industry-peer funding rounds (only when the
+    # free-text industry confidently matches a dataset bucket — never guessed).
+    bucket = _match_industry_bucket(data.industry)
+    if bucket and bucket in INDUSTRY_FUNDING_BENCHMARK:
+        stats = INDUSTRY_FUNDING_BENCHMARK[bucket]
+        p25, median, p75, n = stats["p25"], stats["median"], stats["p75"], stats["n"]
+        if data.funding_raised < p25:
+            verdict = f"below the 25th percentile (${p25:,.0f}) of real {bucket} funding rounds"
+        elif data.funding_raised <= p75:
+            verdict = f"within the middle 50% (${p25:,.0f}–${p75:,.0f}) of real {bucket} funding rounds"
+        else:
+            verdict = f"above the 75th percentile (${p75:,.0f}) of real {bucket} funding rounds"
+        comparisons.append({
+            "metric": "Funding vs. Industry Peers",
+            "your_value": _fmt_money(data.funding_raised),
+            "benchmark_value": f"median {_fmt_money(median)} across {n} real {bucket} rounds",
+            "comparison": f"You've raised {_fmt_money(data.funding_raised)}, {verdict} (based on {n} real "
+                           f"Indian {bucket} funding rounds, 2015\u20132017).",
+        })
 
     return comparisons
